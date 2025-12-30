@@ -12,6 +12,9 @@
     export let day;
     // day is passed as prop, e.g. 1
 
+
+    export let showPodcast = true;
+
     const dispatch = createEventDispatcher();
 
     let htmlContent = "";
@@ -159,7 +162,7 @@
                 Erreur de chargement des lectures.
             </div>
         {:else}
-            {#if currentDayData?.podcast}
+            {#if showPodcast && currentDayData?.podcast}
                 <div class="mb-8">
                     {#each currentDayData.podcast as pod}
                         <PodcastPlayer podcast={pod} />

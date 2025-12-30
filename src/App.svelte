@@ -12,6 +12,7 @@
   let listContainer;
   let todayItem;
   let isDarkMode = false;
+  let showPodcast = true;
 
   // Date Logic
   // Assumption: Day 1 = Jan 1 of Current Year
@@ -71,10 +72,18 @@
       window.matchMedia &&
       window.matchMedia("(prefers-color-scheme: dark)").matches
     ) {
-      document.documentElement.classList.add("dark");
       isDarkMode = true;
     }
+
+    const storedShowPodcast = localStorage.getItem("podcastEnabled");
+    if (storedShowPodcast !== null) {
+      showPodcast = storedShowPodcast === "true";
+    }
   });
+
+  $: if (typeof localStorage !== "undefined") {
+    localStorage.setItem("podcastEnabled", String(showPodcast));
+  }
 
   function toggleDarkMode() {
     isDarkMode = !isDarkMode;
@@ -193,6 +202,91 @@
           >
             <span class="ml-3">Aller à aujourd'hui ...</span>
           </button>
+        </li>
+
+        <li class="pt-2 border-t dark:border-gray-700">
+          <label
+            class="flex items-center justify-between w-full p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+          >
+            <span class="ml-3 font-medium">Afficher le podcast (en)</span>
+            <div class="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                bind:checked={showPodcast}
+                class="sr-only peer"
+              />
+              <div
+                class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"
+              ></div>
+            </div>
+          </label>
+        </li>
+
+        <li>
+          <a
+            href="https://ascensionpress.com/pages/biy-registration"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center w-full p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group"
+          >
+            <span class="ml-3 flex-1">Plan original (en)</span>
+            <svg
+              class="w-4 h-4 text-gray-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+              ></path>
+            </svg>
+          </a>
+        </li>
+
+        <li>
+          <a
+            href="https://github.com/yb85/rando.bibli.cc"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center w-full p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group"
+          >
+            <svg
+              class="w-6 h-6 ml-1 text-gray-500 group-hover:text-gray-900 dark:group-hover:text-white"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-3.795-.735-.54-1.38-1.335-1.755-1.335-1.755-1.095-.75.075-.735.075-.735 1.215.09 1.845 1.245 1.845 1.245 1.08 1.86 2.805 1.32 3.495 1.005.105-.78.42-1.32.765-1.62-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405 1.02 0 2.04.135 3 .405 2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.92 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.285 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+              />
+            </svg>
+            <span class="ml-3">Code source</span>
+          </a>
+        </li>
+
+        <li>
+          <a
+            href="https://www.youtube.com/watch?v=SSN7vildfOg&list=PLrUVGTEOX7mWR2ASKNXrtnwfIqCTEv6G3&pp=0gcJCbEEOCosWNin"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center w-full p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group"
+          >
+            <span class="w-6 h-6 flex items-center justify-center text-lg ml-1"
+              >🔥</span
+            >
+            <span class="ml-3 flex-1">Exode 40</span>
+            <svg
+              class="w-5 h-5 text-red-600"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"
+              />
+            </svg>
+          </a>
         </li>
       </ul>
 
@@ -419,7 +513,7 @@
 
   <!-- Overlay -->
   {#if selectedDay !== null}
-    <ReadingView day={selectedDay} on:close={closeView} />
+    <ReadingView day={selectedDay} {showPodcast} on:close={closeView} />
   {/if}
 </main>
 
