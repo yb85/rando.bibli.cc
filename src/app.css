@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.stique {
+    display: block;
+    /* Force the break to behave nicely */
+    margin-top: 5px;
+    /* Add some spacing if needed */
+    content: "";
+}
+
+/* Base styles for premium feel */
+body {
+    @apply bg-gray-50 dark:bg-gray-900;
+}
+
+/* Reading View Global Styles to ensure they apply to injected HTML */
+.reading-content h2 {
+    @apply text-2xl font-bold text-gray-800 dark:text-white mb-6 mt-4;
+}
+
+.reading-content h3 {
+    @apply text-xl font-semibold text-primary-600 mt-8 mb-4 border-b border-gray-100 dark:border-gray-800 pb-2;
+}
+
+.reading-content section {
+    @apply mb-10;
+}
+
+.reading-content .verse {
+    @apply block mb-2 leading-relaxed text-gray-800 dark:text-gray-100;
+}
+
+.reading-content .chnum {
+    @apply font-bold text-primary-700 mr-1;
+}
+
+.reading-content .vnum {
+    @apply text-xs text-gray-400 dark:text-gray-600 align-top mr-1 select-none inline-block w-6 text-right font-light;
+}
+
+.reading-content .stique {
+    display: block;
+    margin-top: 4px;
+    content: "";
+}
