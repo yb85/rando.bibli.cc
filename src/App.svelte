@@ -6,13 +6,16 @@
   import { sineIn } from "svelte/easing";
   import { fly, fade } from "svelte/transition";
   import { progress } from "./lib/progressStore.js";
+  import "sharer.js";
 
   // State
   let selectedDay = null; // number | null
   let listContainer;
   let todayItem;
-  let isDarkMode = false;
+  let themeMode = "system"; // "system" | "light" | "dark"
   let showPodcast = true;
+  let showShareModal = false;
+  let deferredPrompt = null;
 
   // Date Logic
   // Assumption: Day 1 = Jan 1 of Current Year
@@ -59,6 +62,21 @@
     };
   });
 
+  function applyTheme() {
+    let isDark = false;
+    if (themeMode === "system") {
+      isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    } else {
+      isDark = themeMode === "dark";
+    }
+
+    if (isDark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }
+
   onMount(() => {
     // Scroll to today
     if (todayItem) {
@@ -67,31 +85,70 @@
       }, 100);
     }
 
-    // Auto-detect
-    if (
-      window.matchMedia &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-    ) {
-      isDarkMode = true;
+    // Load Theme
+    const storedTheme = localStorage.getItem("themeMode");
+    if (storedTheme && ["system", "light", "dark"].includes(storedTheme)) {
+      themeMode = storedTheme;
     }
+    applyTheme();
+
+    // System theme listener
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleThemeChange = () => {
+      if (themeMode === "system") applyTheme();
+    };
+    mediaQuery.addEventListener("change", handleThemeChange);
 
     const storedShowPodcast = localStorage.getItem("podcastEnabled");
     if (storedShowPodcast !== null) {
       showPodcast = storedShowPodcast === "true";
     }
+
+    // Capture install prompt
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+    });
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleThemeChange);
+    };
   });
 
   $: if (typeof localStorage !== "undefined") {
     localStorage.setItem("podcastEnabled", String(showPodcast));
   }
 
-  function toggleDarkMode() {
-    isDarkMode = !isDarkMode;
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+  async function installApp() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+  }
+
+  let isReloading = false;
+  function handleTitleClick() {
+    isReloading = true;
+    setTimeout(() => {
+      window.location.reload();
+    }, 700);
+  }
+
+  $: if (showShareModal) {
+    // Re-init sharer.js when modal opens
+    setTimeout(() => {
+      if (window.Sharer) window.Sharer.init();
+    }, 100);
+  }
+
+  function toggleTheme() {
+    // Cycle: system -> light -> dark -> system
+    if (themeMode === "system") themeMode = "light";
+    else if (themeMode === "light") themeMode = "dark";
+    else themeMode = "system";
+
+    localStorage.setItem("themeMode", themeMode);
+    applyTheme();
   }
 
   function captureToday(node, isToday) {
@@ -268,7 +325,7 @@
 
         <li>
           <a
-            href="https://www.youtube.com/watch?v=SSN7vildfOg&list=PLrUVGTEOX7mWR2ASKNXrtnwfIqCTEv6G3&pp=0gcJCbEEOCosWNin"
+            href="https://www.youtube.com/playlist?list=PLrUVGTEOX7mWR2ASKNXrtnwfIqCTEv6G3"
             target="_blank"
             rel="noopener noreferrer"
             class="flex items-center w-full p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group"
@@ -286,6 +343,18 @@
                 d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"
               />
             </svg>
+          </a>
+        </li>
+
+        <li>
+          <a
+            href="mailto:rando@bibli.cc"
+            class="flex items-center w-full p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group"
+          >
+            <span class="w-6 h-6 flex items-center justify-center text-lg ml-1"
+              >📧</span
+            >
+            <span class="ml-3">Contact (rando@bibli.cc)</span>
           </a>
         </li>
       </ul>
@@ -387,6 +456,105 @@
   </div>
 </Modal>
 
+<Modal bind:open={showShareModal} size="xs" autoclose={false} class="w-full">
+  <div class="text-center">
+    <h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">
+      Partager ce plan de lecture biblique
+    </h3>
+    <div class="flex flex-col gap-3">
+      <!-- WhatsApp -->
+      <button
+        class="w-full text-white bg-[#25D366] hover:bg-[#128C7E] focus:ring-4 focus:outline-none focus:ring-[#25D366]/50 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-[#25D366]/55"
+        data-sharer="whatsapp"
+        data-title="La Bible en un an - Un plan de lecture quotidien"
+        data-url={window.location.href}
+      >
+        <svg
+          class="w-4 h-4 me-2"
+          aria-hidden="true"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="currentColor"
+          viewBox="0 0 448 512"
+          ><path
+            d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"
+          /></svg
+        >
+        WhatsApp
+      </button>
+
+      <!-- Facebook -->
+      <button
+        class="w-full text-white bg-[#3b5998] hover:bg-[#3b5998]/90 focus:ring-4 focus:outline-none focus:ring-[#3b5998]/50 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-[#3b5998]/55"
+        data-sharer="facebook"
+        data-url={window.location.href}
+      >
+        <svg
+          class="w-4 h-4 me-2"
+          aria-hidden="true"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="currentColor"
+          viewBox="0 0 8 19"
+          ><path
+            fill-rule="evenodd"
+            d="M6.135 3H8V0H6.135a4.147 4.147 0 0 0-4.142 4.142V6H0v3h2v9.938h3V9h2.021l.592-3H5V3.591A.6.6 0 0 1 5.592 3h.543Z"
+            clip-rule="evenodd"
+          /></svg
+        >
+        Facebook
+      </button>
+
+      <!-- X / Twitter -->
+      <button
+        class="w-full text-white bg-black hover:bg-gray-900 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-gray-700"
+        data-sharer="twitter"
+        data-title="La Bible en un an - Un plan de lecture quotidien"
+        data-url={window.location.href}
+      >
+        <svg
+          class="w-4 h-4 me-2"
+          aria-hidden="true"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="currentColor"
+          viewBox="0 0 512 512"
+          ><path
+            d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"
+          /></svg
+        >
+        X (Twitter)
+      </button>
+
+      <!-- Email -->
+      <button
+        class="w-full text-white bg-gray-500 hover:bg-gray-600 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-gray-700"
+        data-sharer="email"
+        data-title="La Bible en un an"
+        data-url={window.location.href}
+        data-subject="Découvre La Bible en un an"
+      >
+        <svg
+          class="w-4 h-4 me-2"
+          aria-hidden="true"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="currentColor"
+          viewBox="0 0 20 16"
+          ><path
+            d="m10.036 8.278 9.258-7.79A1.979 1.979 0 0 0 18 0H2A1.987 1.987 0 0 0 .641.541l9.395 7.737Z"
+          /><path
+            d="M11.241 9.817c-.36.275-.801.425-1.255.427-.428 0-.845-.138-1.187-.395L0 2.6V14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V2.5l-8.759 7.317Z"
+          /></svg
+        >
+        Email
+      </button>
+    </div>
+    <button
+      class="mt-4 text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600"
+      on:click={() => (showShareModal = false)}
+    >
+      Fermer
+    </button>
+  </div>
+</Modal>
+
 <main
   class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col font-sans"
 >
@@ -417,38 +585,114 @@
     </div>
 
     <h1
-      class="text-xl font-bold text-center text-gray-800 dark:text-white tracking-tight"
+      on:click={handleTitleClick}
+      on:keydown={(e) => e.key === "Enter" && handleTitleClick()}
+      tabindex="0"
+      role="button"
+      class="text-xl font-bold text-center text-gray-800 dark:text-white tracking-tight cursor-pointer select-none transition-transform duration-700 ease-in-out"
+      class:[transform:rotateX(360deg)]={isReloading}
     >
       La Bible en {currentYear}
     </h1>
-    <button
-      on:click={toggleDarkMode}
-      class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-700 w-8 h-8 flex items-center justify-center transition-colors"
-    >
-      {#if isDarkMode}
-        <svg
-          class="w-5 h-5"
-          fill="currentColor"
-          viewBox="0 0 20 20"
-          xmlns="http://www.w3.org/2000/svg"
-          ><path
-            d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
-            fill-rule="evenodd"
-            clip-rule="evenodd"
-          ></path></svg
+    <div class="flex items-center gap-2">
+      {#if deferredPrompt}
+        <button
+          on:click={installApp}
+          class="px-3 py-2 rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-300 dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800 text-sm font-medium flex items-center transition-colors"
+          aria-label="Installer l'application"
         >
-      {:else}
-        <svg
-          class="w-5 h-5"
-          fill="currentColor"
-          viewBox="0 0 20 20"
-          xmlns="http://www.w3.org/2000/svg"
-          ><path
-            d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"
-          ></path></svg
-        >
+          <svg
+            class="w-4 h-4 mr-2"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+          Installer
+        </button>
       {/if}
-    </button>
+      <button
+        on:click={() => (showShareModal = true)}
+        class="px-3 py-2 rounded-lg text-secondary-800 bg-secondary-100 hover:bg-secondary-200 focus:outline-none focus:ring-4 focus:ring-secondary-100 dark:bg-secondary-700 dark:text-gray-200 dark:hover:bg-secondary-600 dark:focus:ring-secondary-800 text-sm font-medium flex items-center transition-colors"
+        aria-label="Partager"
+      >
+        <svg
+          class="w-4 h-4 mr-2"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+          />
+        </svg>
+        <span class="hidden sm:inline">Partager</span>
+      </button>
+      <button
+        on:click={toggleTheme}
+        class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-700 w-8 h-8 flex items-center justify-center transition-colors"
+        title={themeMode === "system"
+          ? "Système"
+          : themeMode === "light"
+            ? "Clair"
+            : "Sombre"}
+      >
+        {#if themeMode === "system"}
+          <!-- System Icon (Computer) -->
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+            />
+          </svg>
+        {:else if themeMode === "light"}
+          <!-- Light Icon (Sun) -->
+          <svg
+            class="w-5 h-5"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+            />
+          </svg>
+        {:else}
+          <!-- Dark Icon (Moon) -->
+          <svg
+            class="w-5 h-5"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"
+            />
+          </svg>
+        {/if}
+      </button>
+    </div>
   </header>
 
   <!-- List -->
